@@ -1,20 +1,23 @@
-provider "aws" {
-  region = "us-east-1"
-}
-
-resource "aws_vpc" "main_vpc" {
-  cidr_block = "10.0.0.0/16"
-
-  tags = {
-    Name = "day03-vpc"
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+      version = "~> 6.0"
+    }
   }
 }
 
-resource "aws_s3_bucket" "demo_bucket" {
-  bucket = "30daysofawsterraform-demo-bucket-12345"
+provider "aws" {
+  # Configuration options
+    region = "us-east-1"
+}
+
+# Create a S3 bucket
+resource "aws_s3_bucket" "tf_test_baivab_bucket" {
+  bucket = "my-tf-test-baiv-bucket-101"
 
   tags = {
-    Name    = "day03-bucket"
-    VPC_ID = aws_vpc.main_vpc.id
+    Name        = "My bucket"
+    Environment = "Dev"
   }
 }
