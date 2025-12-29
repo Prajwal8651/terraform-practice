@@ -1,10 +1,21 @@
-# Configure the AWS Provider
 terraform {
   required_providers {
     aws = {
-      source = "hashicorp/aws"
+      source  = "hashicorp/aws"
       version = "~> 6.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
+  }
+
+  backend "s3" {
+    bucket       = "terraform-state-1766811759"
+    key          = "day05/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
   }
 }
 
@@ -27,6 +38,7 @@ locals {
   }
   
   full_bucket_name = "${var.environment}-${var.bucket_name}-${random_string.suffix.result}"
+  aws_vpc_name = "${var.environment}-vpc"
 }
 
 
@@ -40,7 +52,7 @@ resource "aws_vpc" "regera_vpc" {
 
     tags = {
         Name        =  local.full_bucket_name
-        Environment = "dev"
+        Environment = local.aws_vpc_name
     }
   
 }
@@ -92,3 +104,4 @@ output "tags" {
   description = "Tags from local variable"
   value       = local.common_tags
 }
+
