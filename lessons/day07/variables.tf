@@ -21,6 +21,7 @@ variable "allowed_region" {
 ############################
 variable "instance_count" {
   type        = number
+  default = 2
   description = "Number of EC2 instances to create"
 }
 
@@ -91,7 +92,7 @@ variable "config" {
   default = {
     region         = "us-east-1"
     monitoring     = true
-    instance_count = 1
+    instance_count = 10
   }
 }
 
