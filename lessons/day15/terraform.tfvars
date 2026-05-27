@@ -3,12 +3,15 @@
 
 primary_region   = "us-east-1"
 secondary_region = "us-west-2"
+tertiary_region  = "ap-south-1"
 
 primary_vpc_cidr   = "10.0.0.0/16"
 secondary_vpc_cidr = "10.1.0.0/16"
+tertiary_vpc_cidr  = "10.2.0.0/16"
 
 primary_subnet_cidr   = "10.0.1.0/24"
 secondary_subnet_cidr = "10.1.1.0/24"
+tertiary_subnet_cidr = "10.2.1.0/24"
 
 instance_type = "t2.micro"
 
@@ -16,3 +19,4 @@ instance_type = "t2.micro"
 # Use different key names for clarity
 primary_key_name   = "vpc-peering-demo-east"
 secondary_key_name = "vpc-peering-demo-west"
+tertiary_key_name = "vpc-peering-demo-mumbai"

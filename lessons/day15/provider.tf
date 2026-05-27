@@ -22,3 +22,12 @@ provider "aws" {
   region = var.secondary_region
   alias  = "secondary"
 }
+
+# =====================================================
+# TERTIARY PROVIDER (Mumbai)
+# =====================================================
+
+provider "aws" {
+  region = var.tertiary_region
+  alias  = "tertiary"
+}

@@ -1,7 +1,11 @@
-# VPC Peering Demo
-# This demo creates two VPCs in different regions and establishes peering between them
+# =====================================================
+# VPC PEERING DEMO - FULL MESH MULTI REGION SETUP
+# =====================================================
 
-# Primary VPC in us-east-1
+# =====================================================
+# PRIMARY VPC (us-east-1)
+# =====================================================
+
 resource "aws_vpc" "primary_vpc" {
   provider             = aws.primary
   cidr_block           = var.primary_vpc_cidr
@@ -15,7 +19,10 @@ resource "aws_vpc" "primary_vpc" {
   }
 }
 
-# Secondary VPC in us-west-2
+# =====================================================
+# SECONDARY VPC (us-west-2)
+# =====================================================
+
 resource "aws_vpc" "secondary_vpc" {
   provider             = aws.secondary
   cidr_block           = var.secondary_vpc_cidr
@@ -29,7 +36,27 @@ resource "aws_vpc" "secondary_vpc" {
   }
 }
 
-# Subnet in Primary VPC
+# =====================================================
+# TERTIARY VPC (ap-south-1)
+# =====================================================
+
+resource "aws_vpc" "tertiary_vpc" {
+  provider             = aws.tertiary
+  cidr_block           = var.tertiary_vpc_cidr
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+
+  tags = {
+    Name        = "Tertiary-VPC-${var.tertiary_region}"
+    Environment = "Demo"
+    Purpose     = "VPC-Peering-Demo"
+  }
+}
+
+# =====================================================
+# PRIMARY PUBLIC SUBNET
+# =====================================================
+
 resource "aws_subnet" "primary_subnet" {
   provider                = aws.primary
   vpc_id                  = aws_vpc.primary_vpc.id
@@ -38,29 +65,55 @@ resource "aws_subnet" "primary_subnet" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name        = "Primary-Subnet-${var.primary_region}"
+    Name        = "Primary-Public-Subnet"
     Environment = "Demo"
+    Type        = "Public"
+    Purpose     = "VPC-Peering-Demo"
   }
 }
 
-# Subnet in Secondary VPC
+# =====================================================
+# SECONDARY PRIVATE SUBNET
+# =====================================================
+
 resource "aws_subnet" "secondary_subnet" {
   provider                = aws.secondary
   vpc_id                  = aws_vpc.secondary_vpc.id
   cidr_block              = var.secondary_subnet_cidr
   availability_zone       = data.aws_availability_zones.secondary.names[0]
-
-  # Private subnet
   map_public_ip_on_launch = false
 
   tags = {
-    Name        = "Secondary-Private-Subnet-${var.secondary_region}"
+    Name        = "Secondary-Private-Subnet"
     Environment = "Demo"
     Type        = "Private"
+    Purpose     = "VPC-Peering-Demo"
   }
 }
 
-# Internet Gateway for Primary VPC
+# =====================================================
+# TERTIARY PRIVATE SUBNET
+# =====================================================
+
+resource "aws_subnet" "tertiary_subnet" {
+  provider                = aws.tertiary
+  vpc_id                  = aws_vpc.tertiary_vpc.id
+  cidr_block              = var.tertiary_subnet_cidr
+  availability_zone       = data.aws_availability_zones.tertiary.names[0]
+  map_public_ip_on_launch = false
+
+  tags = {
+    Name        = "Tertiary-Private-Subnet"
+    Environment = "Demo"
+    Type        = "Private"
+    Purpose     = "VPC-Peering-Demo"
+  }
+}
+
+# =====================================================
+# INTERNET GATEWAY
+# =====================================================
+
 resource "aws_internet_gateway" "primary_igw" {
   provider = aws.primary
   vpc_id   = aws_vpc.primary_vpc.id
@@ -68,21 +121,14 @@ resource "aws_internet_gateway" "primary_igw" {
   tags = {
     Name        = "Primary-IGW"
     Environment = "Demo"
+    Purpose     = "VPC-Peering-Demo"
   }
 }
 
-# Internet Gateway for Secondary VPC
-resource "aws_internet_gateway" "secondary_igw" {
-  provider = aws.secondary
-  vpc_id   = aws_vpc.secondary_vpc.id
+# =====================================================
+# PRIMARY ROUTE TABLE
+# =====================================================
 
-  tags = {
-    Name        = "Secondary-IGW"
-    Environment = "Demo"
-  }
-}
-
-# Route table for Primary VPC
 resource "aws_route_table" "primary_rt" {
   provider = aws.primary
   vpc_id   = aws_vpc.primary_vpc.id
@@ -95,10 +141,14 @@ resource "aws_route_table" "primary_rt" {
   tags = {
     Name        = "Primary-Route-Table"
     Environment = "Demo"
+    Purpose     = "VPC-Peering-Demo"
   }
 }
 
-# Route table for Secondary VPC
+# =====================================================
+# SECONDARY ROUTE TABLE
+# =====================================================
+
 resource "aws_route_table" "secondary_rt" {
   provider = aws.secondary
   vpc_id   = aws_vpc.secondary_vpc.id
@@ -106,24 +156,51 @@ resource "aws_route_table" "secondary_rt" {
   tags = {
     Name        = "Secondary-Private-Route-Table"
     Environment = "Demo"
+    Purpose     = "VPC-Peering-Demo"
   }
 }
 
-# Associate route table with Primary subnet
+# =====================================================
+# TERTIARY ROUTE TABLE
+# =====================================================
+
+resource "aws_route_table" "tertiary_rt" {
+  provider = aws.tertiary
+  vpc_id   = aws_vpc.tertiary_vpc.id
+
+  tags = {
+    Name        = "Tertiary-Private-Route-Table"
+    Environment = "Demo"
+    Purpose     = "VPC-Peering-Demo"
+  }
+}
+
+# =====================================================
+# ROUTE TABLE ASSOCIATIONS
+# =====================================================
+
 resource "aws_route_table_association" "primary_rta" {
   provider       = aws.primary
   subnet_id      = aws_subnet.primary_subnet.id
   route_table_id = aws_route_table.primary_rt.id
 }
 
-# Associate route table with Secondary subnet
 resource "aws_route_table_association" "secondary_rta" {
   provider       = aws.secondary
   subnet_id      = aws_subnet.secondary_subnet.id
   route_table_id = aws_route_table.secondary_rt.id
 }
 
-# VPC Peering Connection (Requester side - Primary VPC)
+resource "aws_route_table_association" "tertiary_rta" {
+  provider       = aws.tertiary
+  subnet_id      = aws_subnet.tertiary_subnet.id
+  route_table_id = aws_route_table.tertiary_rt.id
+}
+
+# =====================================================
+# PRIMARY ↔ SECONDARY PEERING
+# =====================================================
+
 resource "aws_vpc_peering_connection" "primary_to_secondary" {
   provider    = aws.primary
   vpc_id      = aws_vpc.primary_vpc.id
@@ -134,52 +211,153 @@ resource "aws_vpc_peering_connection" "primary_to_secondary" {
   tags = {
     Name        = "Primary-to-Secondary-Peering"
     Environment = "Demo"
-    Side        = "Requester"
+    Purpose     = "VPC-Peering-Demo"
   }
 }
 
-# VPC Peering Connection Accepter (Accepter side - Secondary VPC)
 resource "aws_vpc_peering_connection_accepter" "secondary_accepter" {
   provider                  = aws.secondary
   vpc_peering_connection_id = aws_vpc_peering_connection.primary_to_secondary.id
   auto_accept               = true
+}
+
+# =====================================================
+# SECONDARY ↔ TERTIARY PEERING
+# =====================================================
+
+resource "aws_vpc_peering_connection" "secondary_to_tertiary" {
+  provider    = aws.secondary
+  vpc_id      = aws_vpc.secondary_vpc.id
+  peer_vpc_id = aws_vpc.tertiary_vpc.id
+  peer_region = var.tertiary_region
+  auto_accept = false
 
   tags = {
-    Name        = "Secondary-Peering-Accepter"
+    Name        = "Secondary-to-Tertiary-Peering"
     Environment = "Demo"
-    Side        = "Accepter"
+    Purpose     = "VPC-Peering-Demo"
   }
 }
 
-# Add route in Primary route table to reach Secondary VPC via peering connection
+resource "aws_vpc_peering_connection_accepter" "tertiary_accept_secondary" {
+  provider                  = aws.tertiary
+  vpc_peering_connection_id = aws_vpc_peering_connection.secondary_to_tertiary.id
+  auto_accept               = true
+}
+
+# =====================================================
+# TERTIARY ↔ PRIMARY PEERING
+# =====================================================
+
+resource "aws_vpc_peering_connection" "tertiary_to_primary" {
+  provider    = aws.tertiary
+  vpc_id      = aws_vpc.tertiary_vpc.id
+  peer_vpc_id = aws_vpc.primary_vpc.id
+  peer_region = var.primary_region
+  auto_accept = false
+
+  tags = {
+    Name        = "Tertiary-to-Primary-Peering"
+    Environment = "Demo"
+    Purpose     = "VPC-Peering-Demo"
+  }
+}
+
+resource "aws_vpc_peering_connection_accepter" "primary_accept_tertiary" {
+  provider                  = aws.primary
+  vpc_peering_connection_id = aws_vpc_peering_connection.tertiary_to_primary.id
+  auto_accept               = true
+}
+
+# =====================================================
+# PRIMARY ROUTES
+# =====================================================
+
 resource "aws_route" "primary_to_secondary" {
   provider                  = aws.primary
   route_table_id            = aws_route_table.primary_rt.id
   destination_cidr_block    = var.secondary_vpc_cidr
   vpc_peering_connection_id = aws_vpc_peering_connection.primary_to_secondary.id
 
-  depends_on = [aws_vpc_peering_connection_accepter.secondary_accepter]
+  depends_on = [
+    aws_vpc_peering_connection_accepter.secondary_accepter
+  ]
 }
 
-# Add route in Secondary route table to reach Primary VPC via peering connection
+resource "aws_route" "primary_to_tertiary" {
+  provider                  = aws.primary
+  route_table_id            = aws_route_table.primary_rt.id
+  destination_cidr_block    = var.tertiary_vpc_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.tertiary_to_primary.id
+
+  depends_on = [
+    aws_vpc_peering_connection_accepter.primary_accept_tertiary
+  ]
+}
+
+# =====================================================
+# SECONDARY ROUTES
+# =====================================================
+
 resource "aws_route" "secondary_to_primary" {
   provider                  = aws.secondary
   route_table_id            = aws_route_table.secondary_rt.id
   destination_cidr_block    = var.primary_vpc_cidr
   vpc_peering_connection_id = aws_vpc_peering_connection.primary_to_secondary.id
 
-  depends_on = [aws_vpc_peering_connection_accepter.secondary_accepter]
+  depends_on = [
+    aws_vpc_peering_connection_accepter.secondary_accepter
+  ]
 }
 
-# Security Group for Primary VPC EC2 instance
+resource "aws_route" "secondary_to_tertiary" {
+  provider                  = aws.secondary
+  route_table_id            = aws_route_table.secondary_rt.id
+  destination_cidr_block    = var.tertiary_vpc_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.secondary_to_tertiary.id
+
+  depends_on = [
+    aws_vpc_peering_connection_accepter.tertiary_accept_secondary
+  ]
+}
+
+# =====================================================
+# TERTIARY ROUTES
+# =====================================================
+
+resource "aws_route" "tertiary_to_primary" {
+  provider                  = aws.tertiary
+  route_table_id            = aws_route_table.tertiary_rt.id
+  destination_cidr_block    = var.primary_vpc_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.tertiary_to_primary.id
+
+  depends_on = [
+    aws_vpc_peering_connection_accepter.primary_accept_tertiary
+  ]
+}
+
+resource "aws_route" "tertiary_to_secondary" {
+  provider                  = aws.tertiary
+  route_table_id            = aws_route_table.tertiary_rt.id
+  destination_cidr_block    = var.secondary_vpc_cidr
+  vpc_peering_connection_id = aws_vpc_peering_connection.secondary_to_tertiary.id
+
+  depends_on = [
+    aws_vpc_peering_connection_accepter.tertiary_accept_secondary
+  ]
+}
+
+# =====================================================
+# PRIMARY SECURITY GROUP
+# =====================================================
+
 resource "aws_security_group" "primary_sg" {
-  provider    = aws.primary
-  name        = "primary-vpc-sg"
-  description = "Security group for Primary VPC instance"
-  vpc_id      = aws_vpc.primary_vpc.id
+  provider = aws.primary
+  name     = "primary-vpc-sg"
+  vpc_id   = aws_vpc.primary_vpc.id
 
   ingress {
-    description = "SSH from anywhere"
+    description = "SSH from Internet"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
@@ -187,23 +365,18 @@ resource "aws_security_group" "primary_sg" {
   }
 
   ingress {
-    description = "ICMP from Secondary VPC"
+    description = "ICMP from Peered VPCs"
     from_port   = -1
     to_port     = -1
     protocol    = "icmp"
-    cidr_blocks = [var.secondary_vpc_cidr]
-  }
 
-  ingress {
-    description = "All traffic from Secondary VPC"
-    from_port   = 0
-    to_port     = 65535
-    protocol    = "tcp"
-    cidr_blocks = [var.secondary_vpc_cidr]
+    cidr_blocks = [
+      var.secondary_vpc_cidr,
+      var.tertiary_vpc_cidr
+    ]
   }
 
   egress {
-    description = "Allow all outbound traffic"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -211,57 +384,131 @@ resource "aws_security_group" "primary_sg" {
   }
 
   tags = {
-    Name        = "Primary-VPC-SG"
+    Name        = "Primary-SG"
     Environment = "Demo"
   }
 }
 
-# Security Group for Secondary VPC EC2 instance
+# =====================================================
+# SECONDARY SECURITY GROUP
+# =====================================================
+
 resource "aws_security_group" "secondary_sg" {
-  provider    = aws.secondary
-  name        = "secondary-vpc-sg"
-  description = "Security group for Secondary VPC instance"
-  vpc_id      = aws_vpc.secondary_vpc.id
+  provider = aws.secondary
+  name     = "secondary-vpc-sg"
+  vpc_id   = aws_vpc.secondary_vpc.id
+
+  
 
   ingress {
-  description = "SSH from Primary VPC"
-  from_port   = 22
-  to_port     = 22
-  protocol    = "tcp"
-  cidr_blocks = [var.primary_vpc_cidr]
-}
-
-  ingress {
-    description = "ICMP from Primary VPC"
-    from_port   = -1
-    to_port     = -1
-    protocol    = "icmp"
-    cidr_blocks = [var.primary_vpc_cidr]
-  }
-
-  ingress {
-    description = "All traffic from Primary VPC"
-    from_port   = 0
-    to_port     = 65535
+    description = "SSH from Primary VPC"
+    from_port   = 22
+    to_port     = 22
     protocol    = "tcp"
     cidr_blocks = [var.primary_vpc_cidr]
   }
 
+  ingress {
+    description = "ICMP from Peered VPCs"
+    from_port   = -1
+    to_port     = -1
+    protocol    = "icmp"
+
+    cidr_blocks = [
+      var.primary_vpc_cidr,
+      var.tertiary_vpc_cidr
+    ]
+  }
+
   egress {
-    description = "Allow all outbound traffic"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+    description = "HTTP from Peered VPCs"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+
+    cidr_blocks = [
+      var.primary_vpc_cidr,
+      var.secondary_vpc_cidr,
+      var.tertiary_vpc_cidr
+    ]
+  }
+
   tags = {
-    Name        = "Secondary-VPC-SG"
+    Name        = "Secondary-SG"
     Environment = "Demo"
   }
 }
 
-# EC2 Instance in Primary VPC
+# =====================================================
+# TERTIARY SECURITY GROUP
+# =====================================================
+
+resource "aws_security_group" "tertiary_sg" {
+  provider = aws.tertiary
+  name     = "tertiary-vpc-sg"
+  vpc_id   = aws_vpc.tertiary_vpc.id
+
+  ingress {
+    description = "SSH from Peered VPCs"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+
+    cidr_blocks = [
+      var.primary_vpc_cidr,
+      var.secondary_vpc_cidr
+    ]
+  }
+
+  ingress {
+    description = "ICMP from Peered VPCs"
+    from_port   = -1
+    to_port     = -1
+    protocol    = "icmp"
+
+    cidr_blocks = [
+      var.primary_vpc_cidr,
+      var.secondary_vpc_cidr
+    ]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "HTTP from Peered VPCs"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+
+    cidr_blocks = [
+      var.primary_vpc_cidr,
+      var.secondary_vpc_cidr,
+      var.tertiary_vpc_cidr
+    ]
+  }
+
+  tags = {
+    Name        = "Tertiary-SG"
+    Environment = "Demo"
+  }
+}
+
+# =====================================================
+# PRIMARY EC2 (PUBLIC BASTION)
+# =====================================================
+
 resource "aws_instance" "primary_instance" {
   provider               = aws.primary
   ami                    = data.aws_ami.primary_ami.id
@@ -272,16 +519,22 @@ resource "aws_instance" "primary_instance" {
 
   user_data = local.primary_user_data
 
-  tags = {
-    Name        = "Primary-VPC-Instance"
-    Environment = "Demo"
-    Region      = var.primary_region
-  }
+  depends_on = [
+    aws_route.primary_to_secondary,
+    aws_route.primary_to_tertiary
+  ]
 
-  depends_on = [aws_vpc_peering_connection_accepter.secondary_accepter]
+  tags = {
+    Name        = "Primary-Bastion-EC2"
+    Environment = "Demo"
+    Purpose     = "VPC-Peering-Demo"
+  }
 }
 
-# EC2 Instance in Secondary VPC
+# =====================================================
+# SECONDARY EC2 (PRIVATE)
+# =====================================================
+
 resource "aws_instance" "secondary_instance" {
   provider                    = aws.secondary
   ami                         = data.aws_ami.secondary_ami.id
@@ -293,12 +546,41 @@ resource "aws_instance" "secondary_instance" {
 
   user_data = local.secondary_user_data
 
-  tags = {
-    Name        = "Secondary-VPC-Instance"
-    Environment = "Demo"
-    Region      = var.secondary_region
-    Type        = "Private"
-  }
+  depends_on = [
+    aws_route.secondary_to_primary,
+    aws_route.secondary_to_tertiary
+  ]
 
-  depends_on = [aws_vpc_peering_connection_accepter.secondary_accepter]
+  tags = {
+    Name        = "Secondary-Private-EC2"
+    Environment = "Demo"
+    Purpose     = "VPC-Peering-Demo"
+  }
+}
+
+# =====================================================
+# TERTIARY EC2 (PRIVATE)
+# =====================================================
+
+resource "aws_instance" "tertiary_instance" {
+  provider                    = aws.tertiary
+  ami                         = data.aws_ami.tertiary_ami.id
+  instance_type               = var.instance_type
+  subnet_id                   = aws_subnet.tertiary_subnet.id
+  vpc_security_group_ids      = [aws_security_group.tertiary_sg.id]
+  key_name                    = var.tertiary_key_name
+  associate_public_ip_address = false
+
+  user_data = local.tertiary_user_data
+
+  depends_on = [
+    aws_route.tertiary_to_primary,
+    aws_route.tertiary_to_secondary
+  ]
+
+  tags = {
+    Name        = "Tertiary-Private-EC2"
+    Environment = "Demo"
+    Purpose     = "VPC-Peering-Demo"
+  }
 }
