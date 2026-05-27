@@ -49,11 +49,14 @@ resource "aws_subnet" "secondary_subnet" {
   vpc_id                  = aws_vpc.secondary_vpc.id
   cidr_block              = var.secondary_subnet_cidr
   availability_zone       = data.aws_availability_zones.secondary.names[0]
-  map_public_ip_on_launch = true
+
+  # Private subnet
+  map_public_ip_on_launch = false
 
   tags = {
-    Name        = "Secondary-Subnet-${var.secondary_region}"
+    Name        = "Secondary-Private-Subnet-${var.secondary_region}"
     Environment = "Demo"
+    Type        = "Private"
   }
 }
 
@@ -100,13 +103,8 @@ resource "aws_route_table" "secondary_rt" {
   provider = aws.secondary
   vpc_id   = aws_vpc.secondary_vpc.id
 
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.secondary_igw.id
-  }
-
   tags = {
-    Name        = "Secondary-Route-Table"
+    Name        = "Secondary-Private-Route-Table"
     Environment = "Demo"
   }
 }
@@ -226,12 +224,12 @@ resource "aws_security_group" "secondary_sg" {
   vpc_id      = aws_vpc.secondary_vpc.id
 
   ingress {
-    description = "SSH from anywhere"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  description = "SSH from Primary VPC"
+  from_port   = 22
+  to_port     = 22
+  protocol    = "tcp"
+  cidr_blocks = [var.primary_vpc_cidr]
+}
 
   ingress {
     description = "ICMP from Primary VPC"
@@ -285,12 +283,13 @@ resource "aws_instance" "primary_instance" {
 
 # EC2 Instance in Secondary VPC
 resource "aws_instance" "secondary_instance" {
-  provider               = aws.secondary
-  ami                    = data.aws_ami.secondary_ami.id
-  instance_type          = var.instance_type
-  subnet_id              = aws_subnet.secondary_subnet.id
-  vpc_security_group_ids = [aws_security_group.secondary_sg.id]
-  key_name               = var.secondary_key_name
+  provider                    = aws.secondary
+  ami                         = data.aws_ami.secondary_ami.id
+  instance_type               = var.instance_type
+  subnet_id                   = aws_subnet.secondary_subnet.id
+  vpc_security_group_ids      = [aws_security_group.secondary_sg.id]
+  key_name                    = var.secondary_key_name
+  associate_public_ip_address = false
 
   user_data = local.secondary_user_data
 
@@ -298,6 +297,7 @@ resource "aws_instance" "secondary_instance" {
     Name        = "Secondary-VPC-Instance"
     Environment = "Demo"
     Region      = var.secondary_region
+    Type        = "Private"
   }
 
   depends_on = [aws_vpc_peering_connection_accepter.secondary_accepter]
