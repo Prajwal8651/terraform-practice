@@ -544,8 +544,6 @@ resource "aws_instance" "secondary_instance" {
   key_name                    = var.secondary_key_name
   associate_public_ip_address = false
 
-  user_data = local.secondary_user_data
-
   depends_on = [
     aws_route.secondary_to_primary,
     aws_route.secondary_to_tertiary
@@ -570,8 +568,6 @@ resource "aws_instance" "tertiary_instance" {
   vpc_security_group_ids      = [aws_security_group.tertiary_sg.id]
   key_name                    = var.tertiary_key_name
   associate_public_ip_address = false
-
-  user_data = local.tertiary_user_data
 
   depends_on = [
     aws_route.tertiary_to_primary,

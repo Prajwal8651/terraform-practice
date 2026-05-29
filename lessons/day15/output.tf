@@ -102,17 +102,7 @@ output "tertiary_instance_id" {
 # =====================================================
 
 output "primary_instance_private_ip" {
-  description = "Private IP of the Primary EC2 Instance"
-  value       = aws_instance.primary_instance.private_ip
-}
-
-output "secondary_instance_private_ip" {
-  description = "Private IP of the Secondary EC2 Instance"
-  value       = aws_instance.secondary_instance.private_ip
-}
-
-output "tertiary_instance_private_ip" {
-  description = "Private IP of the Tertiary EC2 Instance"
+  description = "Private IP of the Primary EC2 Instanlsance"
   value       = aws_instance.tertiary_instance.private_ip
 }
 
